@@ -55,7 +55,6 @@ with tabs[0]:
     
     with col1:
         st.header("💧 수액 요법 (Fluid Therapy)")
-        # 물결표(~) 대신 대시(-)를 사용하여 마크다운 오류 방지
         st.info("표준 범위: 40-60 mL/kg/day (시간당 2-3 mL/kg)")
         
         base_maint = weight * 50
@@ -85,7 +84,8 @@ with tabs[0]:
         st.header("🍽️ 영양 관리 (DER & Diet)")
         st.subheader("1. 에너지 요구량")
         rer = 70 * (weight ** 0.75)
-        factor = st.select_slider("Illness Factor", options=[0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0], value=1.0)
+        # Illness Factor 기본값 1.1로 수정 및 옵션 추가
+        factor = st.select_slider("Illness Factor", options=[0.8, 1.0, 1.1, 1.2, 1.4, 1.6, 1.8, 2.0], value=1.1)
         
         der = rer * factor
         if is_obese: der *= 0.8
@@ -148,4 +148,4 @@ with tabs[2]:
             st.info(f"**속도: {inf_rate} mL/h**\n\n**원액: {round(drug_ml, 2)} mL**\n\n**희석액: {round(dil_ml, 2)} mL**")
 
 st.divider()
-st.caption("Royal Animal Medical Center | v4.1 | Protocol by Dr. Jaehee Lee")
+st.caption("Royal Animal Medical Center | v4.2 | Protocol by Dr. Jaehee Lee")
