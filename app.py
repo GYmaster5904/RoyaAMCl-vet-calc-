@@ -1,64 +1,67 @@
 import streamlit as st
+import streamlit.components.v1 as components
 
-# --- [1. 페이지 설정 및 디자인 CSS] ---
-st.set_page_config(page_title="로얄동물메디컬센터 Vet Calc v12.1", layout="wide")
+# --- [1. 페이지 설정 및 디자인 CSS 주입] ---
+st.set_page_config(page_title="로얄동물메디컬센터 Vet Calc v16.1", layout="wide")
 
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
     .stApp { color: #1e293b; }
-    /* CRI 조제 카드 스타일 (글자 크기 통일 및 색상 강조) */
-    .cri-card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 5px solid #10b981;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        font-size: 18px;
-        line-height: 1.8;
-    }
-    .speed-text { color: #10b981; font-weight: bold; }
-    .recipe-text { color: #1e3a8a; font-weight: bold; }
     
-    /* CPCR 섹션 스타일 */
-    .cpr-section {
-        background-color: #ffffff;
-        padding: 15px;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        margin-bottom: 10px;
+    /* 상단 공식 및 공지 배너 */
+    .formula-banner {
+        background-color: #1e293b; color: white; padding: 20px; border-radius: 12px; 
+        border-left: 8px solid #ff4b4b; margin-bottom: 25px;
     }
-    .cpr-header {
-        background-color: #f1f5f9;
-        padding: 5px 10px;
-        border-radius: 4px;
-        font-weight: bold;
-        margin-bottom: 10px;
-        border-bottom: 2px solid #cbd5e1;
+    
+    /* CRI 조제 카드 - 시인성 대폭 강화 (원장님 지시: 32px / 28px) */
+    .cri-card {
+        background-color: white; padding: 35px; border-radius: 15px; border-left: 10px solid #10b981;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1); line-height: 1.6; margin-top: 20px;
     }
+    .cri-label { font-size: 22px; color: #64748b; font-weight: bold; }
+    .speed-value { color: #10b981; font-weight: 900; font-size: 38px; display: block; margin: 10px 0; }
+    .recipe-value { color: #1e3a8a; font-weight: 800; font-size: 30px; display: block; margin-top: 10px; }
+    .compat-box { background-color: #fff1f2; color: #e11d48; padding: 15px; border-radius: 8px; margin-top: 15px; font-weight: bold; font-size: 18px; }
+    
+    /* CPCR CSU 스타일 디자인 */
+    .cpr-box { background-color: white; border: 1px solid #cbd5e1; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+    .cpr-header { background-color: #334155; color: white; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 20px; text-align: center; }
+    .cpr-dose { font-size: 19px; font-weight: bold; color: #e11d48; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [2. 데이터베이스: 로얄 표준 함량 및 사료] ---
-STOCK_CONC = {
-    "Epinephrine": 1.0, "Atropine": 0.5, "Vasopressin": 20.0,
-    "Lidocaine": 20.0, "Amiodarone": 50.0, "Esmolol": 10.0,
-    "Naloxone": 0.4, "Flumazenil": 0.1, "Atipamezole": 5.0,
-    "Butorphanol": 2.0, "Midazolam": 1.0, "Diazepam": 5.0,
-    "Dexmedetomidine": 0.118, "Dopamine": 32.96, "Dobutamine": 50.0,
-    "Calcium Gluconate": 100.0, "KP": 3.0, "Mg-Sulfate": 500.0, "Mg-Chloride": 200.0,
-    "Insulin(RI)": 1.0, "Furosemide": 10.0
+# --- [2. 데이터베이스: 사료, 약물, 호환성] ---
+DIET_DATA = {
+    "Royal Canin (Prescription)": {
+        "Recovery (Wet, 100g)": 105, "GI (Dry)": 3912, "GI (Wet, 400g)": 432, "GI High Calorie (Dry)": 4085,
+        "GI Low Fat (Dry)": 3461, "GI Low Fat (Wet, 410g)": 385, "GI Puppy (Dry)": 4143, "GI Puppy (Wet, 195g)": 205,
+        "Urinary S/O (Dry)": 3884, "Urinary S/O (Wet, 100g)": 85, "Renal (Dry)": 3988, "Renal (Wet, 100g)": 110,
+        "Hepatic (Dry)": 3906, "Hepatic (Wet, 420g)": 584, "Hypoallergenic (Dry)": 3880, "Cardiac (Dry)": 3926
+    },
+    "Hill's (Prescription Diet)": {
+        "a/d Urgent Care (Wet, 156g)": 183, "i/d Digestive Care (Dry)": 3663, "i/d (Wet, 156g)": 155,
+        "i/d Low Fat (Dry)": 3316, "i/d Low Fat (Wet, 370g)": 341, "k/d Kidney Care (Dry)": 4220,
+        "k/d (Wet, 156g)": 161, "c/d Multicare (Dry)": 3873, "z/d Food Sensitivities (Dry)": 3619
+    }
 }
 
-DIET_DATA = {
-    "Royal Canin": {
-        "Recovery (Wet, 100g)": 105, "Gastrointestinal (Dry)": 3912, "Gastrointestinal (Wet, 400g)": 432,
-        "GI Low Fat (Dry)": 3461, "GI Low Fat (Wet, 410g)": 385, "Urinary S/O (Dry)": 3884, "Renal (Dry)": 3988
-    },
-    "Hill's": {
-        "a/d Urgent Care (Wet, 156g)": 183, "i/d Digestive Care (Dry)": 3663, "i/d (Wet, 156g)": 155,
-        "k/d Kidney Care (Dry)": 4220, "c/d Multicare (Dry)": 3873
-    }
+STOCK_CONC = {
+    "Epinephrine": 1.0, "Atropine": 0.5, "Vasopressin": 20.0, "Lidocaine": 20.0, "Amiodarone": 50.0, "Esmolol": 10.0,
+    "Naloxone": 0.4, "Flumazenil": 0.1, "Atipamezole": 5.0, "Butorphanol": 2.0, "Midazolam": 1.0, "Diazepam": 5.0,
+    "Dexmedetomidine": 0.118, "Dopamine": 32.96, "Dobutamine": 50.0, "Calcium Gluconate": 100.0, "KP": 3.0,
+    "Mg-Sulfate": 500.0, "Mg-Chloride": 200.0, "Insulin(RI)": 1.0, "Furosemide": 10.0, "Sodium Bicarbonate": 1.0
+}
+
+DRUG_COMPAT = {
+    "Calcium Gluconate": "LRS(결정화), Bicarb와 절대 혼합 금지. 단독 라인 권장.",
+    "Sodium Bicarbonate": "Calcium 함유 수액 금지. 대부분의 카테콜아민과 배합 시 불활성화.",
+    "Epinephrine": "알칼리성 용액에서 파괴됨. 5% DW 희석 시 안정성 높음.",
+    "Norepinephrine": "산화 방지를 위해 5% DW 필수 사용. LRS 금지.",
+    "Diazepam": "플라스틱 흡착 심함. 희석하지 말고 원액 단독 투여 권장.",
+    "Amiodarone": "NS와 혼합 시 침전. 반드시 5% DW만 사용.",
+    "KP": "Ca, Mg와 혼합 시 즉시 침전 발생 주의."
 }
 
 DISEASE_FACTORS = {
@@ -68,163 +71,155 @@ DISEASE_FACTORS = {
     "중증/암": {"암 환자": 1.2, "악액질/중증": 1.4}
 }
 
-# --- [3. 사이드바: 환자 기본 정보 (소수점 1자리 적용)] ---
+# --- [3. 사이드바: 환자 정보 (소수점 1자리 적용)] ---
 with st.sidebar:
-    st.header("🐾 Patient Info")
+    st.header("📋 Patient Info")
     species = st.selectbox("품종", ["개(Canine)", "고양이(Feline)"])
-    # 원장님 지시: 체중 소수점 1자리 고정
-    weight = st.number_input("체중 (kg)", min_value=0.1, value=3.1, step=0.1, format="%.1f")
+    weight = st.number_input("체중 (kg)", 0.1, 150.0, 3.1, 0.1, format="%.1f")
     st.markdown("---")
     cat_n = st.selectbox("질환 카테고리", list(DISEASE_FACTORS.keys()))
     sub_cat = st.selectbox("세부 상태", list(DISEASE_FACTORS[cat_n].keys()))
     st.markdown("---")
     st.caption("Clinical Protocol Architect")
-    st.markdown("### Dr. Jaehee Lee")
+    st.markdown(f"### **Dr. Jaehee Lee**")
 
-# --- [4. 메인 대시보드 탭 구성] ---
-tabs = st.tabs(["🚨 CPCR", "🍴 영양/급여 관리", "💧 수액 요법", "💉 CRI 조제 & Compatibility", "🩸 수혈"])
+# --- [4. 메인 탭 구성] ---
+tabs = st.tabs(["🚨 CPCR (CSU)", "🧪 전해질 교정", "💉 CRI 조제", "💧 수액 요법", "🍴 영양 관리", "🩸 수혈"])
 
-# --- TAB 1: CPCR (CSU Style Layout) ---
+# --- TAB 1: CPCR (CSU Style + Metronome) ---
 with tabs[0]:
     st.markdown(f"### 🚨 CPCR Protocol for {weight:.1f}kg patient")
+    bpm = st.slider("압박 속도 (BPM)", 80, 140, 120)
+    metronome_html = f"""
+    <div style="display: flex; align-items: center; gap: 20px; background: #1e293b; padding: 15px; border-radius: 10px; color: white;">
+        <button id="pB" style="padding: 10px 25px; font-weight: bold; cursor: pointer; background: #10b981; color: white; border-radius:5px; border:none;">▶ START</button>
+        <div id="ht" style="font-size: 30px;">❤️</div> <div>{bpm} BPM</div>
+    </div>
+    <script>
+        const b=document.getElementById('pB'), h=document.getElementById('ht'); let c=null, p=false, i=null;
+        function s(){{ if(!c)c=new(window.AudioContext||window.webkitAudioContext)(); const o=c.createOscillator(), g=c.createGain(); o.type='sine'; o.frequency.setValueAtTime(880, c.currentTime); g.gain.setValueAtTime(0.1, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime+0.1); o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+0.1); h.style.transform='scale(1.5)'; setTimeout(()=>h.style.transform='scale(1)', 100); }}
+        b.onclick=()=>{{ if(p){{clearInterval(i); b.innerText='▶ START'; b.style.background='#10b981';}} else{{i=setInterval(s,(60/{bpm})*1000); b.innerText='■ STOP'; b.style.background='#ef4444';}} p=!p; }};
+    </script>
+    """
+    components.html(metronome_html, height=100)
     
-    # Reversals
-    reversals = {
-        "Naloxone": (weight * 0.04 / STOCK_CONC["Naloxone"]),
-        "Flumazenil": (weight * 0.01 / STOCK_CONC["Flumazenil"]),
-        "Atipamezole": (weight * 0.1 / STOCK_CONC["Atipamezole"])
-    }
-    st.markdown(f"**Reverse narcotics with:** Naloxone {reversals['Naloxone']:.2f}ml | Flumazenil {reversals['Flumazenil']:.2f}ml | Atipamezole {reversals['Atipamezole']:.2f}ml")
-    
-    col_c1, col_c2, col_c3 = st.columns(3)
-    
-    with col_c1:
-        st.markdown('<div class="cpr-header">Ventricular Fibrillation / VT</div>', unsafe_allow_html=True)
-        st.write("**Defibrillation (Biphasic)**")
-        st.error(f"External: {weight*2:.1f} - {weight*4:.1f} Joules")
-        st.write(f"Internal: {weight*0.5:.1f} - {weight*1.0:.1f} Joules")
-        
-        st.markdown("---")
-        st.write("**If prolonged (>10 min):**")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown('<div class="cpr-header">VF / VT</div>', unsafe_allow_html=True)
+        st.write("**Defibrillation**")
+        st.error(f"External: {weight*2:.1f}-{weight*4:.1f} J")
+        st.write(f"Internal: {weight*0.5:.1f}-{weight*1.0:.1f} J")
         st.write(f"Epinephrine (L): {(weight*0.01):.2f} ml")
-        st.write(f"Vasopressin: {(weight*0.8/20):.2f} ml")
         st.write(f"Amiodarone: {(weight*5/50):.2f} ml")
-        if species == "개(Canine)":
-            st.write(f"Lidocaine: {(weight*2/20):.2f} ml")
-
-    with col_c2:
-        st.markdown('<div class="cpr-header">Asystole / PEA / Bradycardia</div>', unsafe_allow_html=True)
-        st.write("**Every other 2-min cycle:**")
-        st.error(f"Epinephrine (Low): {(weight*0.01):.2f} ml")
-        st.write("**OR**")
-        st.write(f"Vasopressin: {(weight*0.8/20):.2f} ml")
-        
-        st.markdown("---")
-        st.write("**Consider every other cycle:**")
-        st.warning(f"Atropine: {(weight*0.04/0.5):.2f} ml")
-
-    with col_c3:
-        st.markdown('<div class="cpr-header">Intratracheal Doses (IT)</div>', unsafe_allow_html=True)
-        st.write("Dose = 2x - 3x IV dose")
-        st.info(f"Epinephrine: {(weight*0.01*2):.2f} ml")
+    with c2:
+        st.markdown('<div class="cpr-header">Asystole / PEA</div>', unsafe_allow_html=True)
+        st.write("**Every other 2m cycle**")
+        st.error(f"Epinephrine (L): {(weight*0.01):.2f} ml")
+        st.write(f"Vasopressin: {(weight*0.8/20):.2f} ml (1x)")
+        st.write(f"Atropine: {(weight*0.04/0.5):.2f} ml")
+    with c3:
+        st.markdown('<div class="cpr-header">IT Doses (2x)</div>', unsafe_allow_html=True)
+        st.info(f"Epi: {(weight*0.01*2):.2f} ml")
         st.info(f"Atropine: {(weight*0.04*2/0.5):.2f} ml")
         st.info(f"Lidocaine: {(weight*2*2/20):.2f} ml")
-        st.info(f"Naloxone: {(weight*0.04*2/0.4):.2f} ml")
 
-# --- TAB 2: 영양 관리 ---
+# --- TAB 2: 전해질 교정 ---
 with tabs[1]:
-    col_n1, col_n2 = st.columns(2)
-    with col_n1:
-        st.header("1. Energy Requirements")
-        st.markdown('<div style="background-color:#1e293b; color:white; padding:10px; border-radius:5px;">RER = BW × 50 kcal/day</div>', unsafe_allow_html=True)
-        rer = weight * 50
-        f_val = DISEASE_FACTORS[cat_n][sub_cat]
-        if st.checkbox("입원 가중치(1.1) 적용", value=True): f_val *= 1.1
-        der = rer * f_val
-        st.metric("목표 DER", f"{der:.0f} kcal/day")
-        strat = st.radio("급여 전략", ["3단계", "4단계", "5단계"], horizontal=True)
-        s_map = {"3단계": [0.33, 0.66, 1.0], "4단계": [0.25, 0.5, 0.75, 1.0], "5단계": [0.2, 0.4, 0.6, 0.8, 1.0]}
-        curr_s = st.select_slider("단계 선택", options=s_map[strat], value=s_map[strat][-1])
-    with col_n2:
-        st.header("2. Feeding Plan")
-        brand = st.selectbox("사료 브랜드", list(DIET_DATA.keys()))
-        prod = st.selectbox("제품 선택", list(DIET_DATA[brand].keys()))
-        kcal = DIET_DATA[brand][prod]
-        unit = "can" if "Wet" in prod or "파우치" in prod else "g"
-        amt = ((der * curr_s) / kcal) * (1 if unit == "can" else 1000)
-        st.success(f"### 일일 급여량: {amt:.1f} {unit}")
+    st.header("🧪 전해질 불균형 교정")
+    e1, e2 = st.columns(2)
+    with e1:
+        cur_na = st.number_input("Na+ (mEq/L)", 100.0, 200.0, 145.0)
+        cur_hco3 = st.number_input("HCO3- (mEq/L)", 5.0, 40.0, 20.0)
+        cur_k = st.number_input("K+ (mEq/L)", 1.0, 10.0, 4.0)
+    with e2:
+        if cur_na > 155: st.error(f"**Free Water Deficit:** {0.6*weight*((cur_na/145)-1):.2f} L")
+        if cur_hco3 < 18: st.info(f"**Bicarb Deficit:** {0.3*weight*(22-cur_hco3):.1f} mEq")
+        k_rec = next((v for kr, v in {3.5:20, 3.0:40, 2.5:60, 2.0:80}.items() if cur_k <= kr), 0)
+        st.success(f"**Recommended K+ Supplement:** {k_rec} mEq/L")
 
-# --- TAB 3: 수액 요법 (모니터링 통합 & 지속손실 소수점 반영) ---
+# --- TAB 3: CRI 조제 (원장님 지시: 시인성 극대화) ---
 with tabs[2]:
-    st.header("💧 Fluid Therapy & Monitoring")
-    col_f1, col_f2 = st.columns([1.5, 1])
-    with col_f1:
-        st.info("성견/성묘 유지 범위: 40-60 mL/kg/day (시간당 2-3 mL/kg)")
-        m_rate = st.slider("유지 용량 (mL/kg/hr)", 1.0, 4.0, 2.0, 0.5)
-        dehy = st.number_input("탈수율 (%)", 0, 15, 0)
-        # 원장님 지침: 체중당 1ml 기준 반영 (소수점 1자리)
-        default_loss = weight * 1.0
-        loss = st.number_input("지속 손실 (Ongoing Loss, mL/day)", value=float(round(default_loss, 1)), step=0.1, format="%.1f")
-        
-        total_f = (weight * m_rate) + ((weight * dehy * 10) / 12) + (loss / 24)
-        st.metric("최종 수액 속도", f"{total_f:.1f} mL/h")
-        st.caption(f"기준: 유지 {weight*m_rate:.1f} + 탈수 {(weight*dehy*10/12):.1f} + 손실 {(loss/24):.1f}")
-        
-    with col_f2:
-        st.subheader("⚠️ Monitoring (AAHA 2024)")
-        st.markdown("""
-        - **Chemosis / Nasal Discharge**
-        - **RR 20%↑** (안정 시 대비)
-        - **Body Weight 10%↑** (24hr 내)
-        - **Gallop Rhythm / Crackles**
-        """)
-        if "심장" in sub_cat: st.error("심장질환: 유지량 1.0-1.5ml/kg/h 권장")
-
-# --- TAB 4: CRI 조제 & Compatibility (글자 크기 및 색상 통일) ---
-with tabs[3]:
     st.header("💉 CRI 조제 및 호환성")
-    selected_drug = st.selectbox("약물 선택", ["Butorphanol", "Midazolam", "Dexmedetomidine", "Epinephrine", "Norepinephrine", "Dopamine", "Calcium Gluconate", "Insulin(RI)", "Furosemide"])
-    
-    col_cri1, col_cri2 = st.columns([1, 2])
-    with col_cri1:
-        irate = st.number_input("펌프 속도 (mL/h)", 0.1, 50.0, 0.5, 0.1)
-        tdose = st.number_input("목표 용량 (mg/kg/h 또는 mcg/kg/min)", value=0.1, format="%.3f")
-        svol = st.selectbox("시린지 볼륨 (mL)", [10, 20, 50], index=2)
-    
-    with col_cri2:
-        is_mcg = selected_drug in ["Epinephrine", "Norepinephrine", "Dopamine"]
-        mg_h = (tdose * weight * 60 / 1000) if is_mcg else (tdose * weight)
-        dml = (mg_h / STOCK_CONC[selected_drug]) * svol / irate
-        
+    dr = st.selectbox("약물 선택", list(STOCK_CONC.keys()))
+    cr1, cr2 = st.columns([1, 2])
+    with cr1:
+        ir = st.number_input("펌프 속도 (mL/h)", 0.1, 100.0, 0.5, 0.1)
+        td = st.number_input("목표 용량 (mg/kg/h or mcg/kg/min)", 0.0, 50.0, 0.1, 0.01, format="%.3f")
+        sv = st.selectbox("시린지 볼륨 (mL)", [10, 20, 50], index=2)
+    with cr2:
+        is_mcg = dr in ["Epinephrine", "Norepinephrine", "Dopamine", "Dobutamine"]
+        mgh = (td * weight * 60 / 1000) if is_mcg else (td * weight)
+        dml = (mgh / STOCK_CONC[dr]) * sv / ir
         st.markdown(f"""
         <div class="cri-card">
-            <b>{selected_drug} 조제 레시피</b><br>
-            <span class="speed-text">속도: {irate:.1f} mL/h</span><br>
-            <span class="recipe-text">원액: {dml:.2f} mL | 희석액: {(svol-dml):.2f} mL</span><br>
-            <small style="color:#64748b;">(희석액: NS 또는 5%DW / 약물별 호환성 확인 필수)</small>
+            <span class="cri-label">{dr} 조제 레시피</span>
+            <span class="speed-value">설정 속도: {ir:.1f} mL/h</span>
+            <span class="recipe-value">원액 {dml:.2f} mL + 희석액 {(sv-dml):.2f} mL</span>
+            <div class="compat-box">⚠️ {DRUG_COMPAT.get(dr, "타 약물 배합 전 호환성 차트 확인 필수")}</div>
         </div>
         """, unsafe_allow_html=True)
 
-# --- TAB 5: 수혈 (계산기 + 독립 공지) ---
+# --- TAB 4: 수액 요법 (배너 및 공지 포함) ---
+with tabs[3]:
+    st.markdown("""
+    <div class="formula-banner">
+        <p style="margin:0; font-size:18px;"><b>Royal Clinical Standard:</b></p>
+        <h2 style="margin:0; color:#ff4b4b;">RER = BW × 50 kcal/day</h2>
+        <p style="margin:5px 0 0 0; color:#cbd5e1;">💡 성견/성묘 유지 범위: 40-60 mL/kg/day (시간당 약 2-3 mL/kg)</p>
+    </div>
+    """, unsafe_allow_html=True)
+    f1, f2 = st.columns([1.5, 1])
+    with f1:
+        m = st.radio("상황 선택", ["로얄 Dry Mode (입원)", "AAHA 2024 마취"], horizontal=True)
+        if "Dry" in m:
+            mr = st.slider("유지 용량 (mL/kg/hr)", 1.0, 4.0, 2.0, 0.5)
+            dy = st.number_input("탈수율 (%)", 0, 15, 0)
+            # 지속손실 소수점 1자리 + 체중당 1ml 반영
+            lo = st.number_input("지속 손실 (mL/day)", value=float(round(weight*1.0, 1)), step=0.1, format="%.1f")
+            total = (weight * mr) + ((weight * dy * 10) / 12) + (lo / 24)
+            st.metric("최종 수액 속도", f"{total:.1f} mL/h")
+        else:
+            st.metric("마취 중 속도 (AAHA 2024)", f"{(weight*5 if species=='개(Canine)' else weight*3):.1f} mL/h")
+    with f2:
+        st.subheader("임상 가이드")
+        if "심장" in sub_cat: st.error("심장: 수액 불내성 고위험군. RR 20%↑ 시 즉시 중단.")
+        elif "췌장" in sub_cat: st.error("췌장: Ongoing Loss 철저 반영 및 전해질 교정.")
+
+# --- TAB 5: 영양 관리 (확장된 사료 DB) ---
 with tabs[4]:
+    st.header("🍴 영양 및 급여 관리")
+    n1, n2 = st.columns(2)
+    with n1:
+        rer_v = weight * 50
+        fv = DISEASE_FACTORS[cat_n][sub_cat]
+        if st.checkbox("입원 가중치(1.1) 적용", value=True, key="nw_11"): fv *= 1.1
+        der_v = rer_v * fv
+        st.metric("목표 DER", f"{der_v:.0f} kcal/day")
+        st_opt = st.radio("급여 전략 (Fasting 기간 고려)", ["3단계", "4단계", "5단계"], horizontal=True)
+        sm = {"3단계": [0.33, 0.66, 1.0], "4단계": [0.25, 0.5, 0.75, 1.0], "5단계": [0.2, 0.4, 0.6, 0.8, 1.0]}
+        cs_v = st.select_slider("현재 단계", options=sm[st_opt], value=sm[st_opt][-1])
+    with n2:
+        br = st.selectbox("브랜드", list(DIET_DATA.keys()))
+        pd = st.selectbox("제품 선택", list(DIET_DATA[br].keys()))
+        kcal = DIET_DATA[br][pd]
+        is_w = any(x in pd for x in ["Wet", "파우치", "100g", "156g", "400g"])
+        un = "can/pouch" if is_w else "g"
+        amt = ((der_v * cs_v) / kcal) * (1 if is_w else 1000)
+        st.success(f"### 최종 급여량: **{amt:.1f} {un}**")
+
+# --- TAB 6: 수혈 ---
+with tabs[5]:
     st.header("🩸 Blood Transfusion")
-    col_t1, col_t2 = st.columns(2)
-    with col_t1:
-        prod = st.radio("제제", ["전혈", "pRBC"], horizontal=True)
-        c_p = st.number_input("현재 PCV (%)", 1.0, 50.0, 15.0, step=0.1)
-        t_p = st.number_input("목표 PCV (%)", 1.0, 50.0, 25.0, step=0.1)
-        k_vt = 90 if species == "개(Canine)" else 60
-        d_p = 40.0 if prod == "전혈" else 70.0
-        tx_v = weight * k_vt * ((t_p - c_p) / d_p)
-        st.metric("필요 수혈량", f"{max(0.0, round(tx_v, 1))} mL")
-    with col_t2:
-        st.info("""
-        **[수혈 관리 공지]**
-        1. **초기 속도:** 0.25~0.5 ml/kg/hr (첫 15-30분 부작용 감시)
-        2. **최대 속도:** 5~10 ml/kg/hr (심장 및 체액 상태 고려)
-        3. **시간 제한:** 4시간 이내 투여 완료 필수 (세균 증식 방지)
-        4. **전용 세트:** 170-260μm 필터 포함 수혈 세트 사용
-        """)
+    tx1, tx2 = st.columns(2)
+    with tx1:
+        pr = st.radio("제제", ["전혈", "pRBC"], horizontal=True)
+        cp = st.number_input("현재 PCV (%)", 1.0, 50.0, 15.0)
+        tp = st.number_input("목표 PCV (%)", 1.0, 50.0, 25.0)
+        kv = 90 if species == "개(Canine)" else 60
+        res = weight * kv * ((tp - cp) / (40.0 if pr == "전혈" else 70.0))
+        st.metric("예상 수혈량", f"{max(0.0, round(res, 1))} mL")
+    with tx2:
+        st.info("초기 15-30분 0.25-0.5ml/kg/hr. 필터 포함 전용 세트 사용 및 4시간 내 완료 필수.")
 
 st.divider()
-st.caption(f"Royal Animal Medical Center | v12.1 | Clinical Protocol by Dr. Jaehee Lee")
+st.caption(f"Royal Animal Medical Center | v16.1 | Protocol by Dr. Jaehee Lee")
